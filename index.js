@@ -1,41 +1,776 @@
 const ethers = require('ethers');
 
-// Define the ABI
 const abi = [
   {
+    anonymous: false,
     inputs: [
-      { internalType: 'uint256', name: 'amountToClaim', type: 'uint256' },
-      { internalType: 'bytes32[]', name: 'merkleProof', type: 'bytes32[]' },
-      { internalType: 'uint256[]', name: 'ids', type: 'uint256[]' },
-      { internalType: 'uint256[]', name: 'quantity', type: 'uint256[]' },
-      { internalType: 'bool', name: 'claimNFT', type: 'bool' },
-      { internalType: 'bool', name: 'isKycRequired', type: 'bool' },
-      { internalType: 'uint8', name: 'v', type: 'uint8' },
-      { internalType: 'bytes32', name: 'r', type: 'bytes32' },
-      { internalType: 'bytes32', name: 's', type: 'bytes32' },
+      { indexed: true, internalType: 'address', name: 'user', type: 'address' },
+      { indexed: true, internalType: 'address', name: 'pool', type: 'address' },
     ],
-    name: 'claimDop',
+    name: 'ClaimFromPool',
+    type: 'event',
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: false, internalType: 'uint8', name: 'version', type: 'uint8' },
+    ],
+    name: 'Initialized',
+    type: 'event',
+  },
+  {
+    anonymous: false,
+    inputs: [
+      {
+        indexed: true,
+        internalType: 'uint256',
+        name: 'poolIndex',
+        type: 'uint256',
+      },
+      {
+        indexed: true,
+        internalType: 'address',
+        name: 'poolAddress',
+        type: 'address',
+      },
+      {
+        indexed: true,
+        internalType: 'address',
+        name: 'poolOwner',
+        type: 'address',
+      },
+      {
+        indexed: false,
+        internalType: 'uint256',
+        name: 'stakedKeyCount',
+        type: 'uint256',
+      },
+    ],
+    name: 'PoolCreated',
+    type: 'event',
+  },
+  {
+    anonymous: false,
+    inputs: [
+      {
+        indexed: false,
+        internalType: 'address',
+        name: 'oldDeployer',
+        type: 'address',
+      },
+      {
+        indexed: false,
+        internalType: 'address',
+        name: 'newDeployer',
+        type: 'address',
+      },
+    ],
+    name: 'PoolProxyDeployerUpdated',
+    type: 'event',
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, internalType: 'bytes32', name: 'role', type: 'bytes32' },
+      {
+        indexed: true,
+        internalType: 'bytes32',
+        name: 'previousAdminRole',
+        type: 'bytes32',
+      },
+      {
+        indexed: true,
+        internalType: 'bytes32',
+        name: 'newAdminRole',
+        type: 'bytes32',
+      },
+    ],
+    name: 'RoleAdminChanged',
+    type: 'event',
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, internalType: 'bytes32', name: 'role', type: 'bytes32' },
+      {
+        indexed: true,
+        internalType: 'address',
+        name: 'account',
+        type: 'address',
+      },
+      {
+        indexed: true,
+        internalType: 'address',
+        name: 'sender',
+        type: 'address',
+      },
+    ],
+    name: 'RoleGranted',
+    type: 'event',
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, internalType: 'bytes32', name: 'role', type: 'bytes32' },
+      {
+        indexed: true,
+        internalType: 'address',
+        name: 'account',
+        type: 'address',
+      },
+      {
+        indexed: true,
+        internalType: 'address',
+        name: 'sender',
+        type: 'address',
+      },
+    ],
+    name: 'RoleRevoked',
+    type: 'event',
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, internalType: 'address', name: 'user', type: 'address' },
+      { indexed: true, internalType: 'address', name: 'pool', type: 'address' },
+      {
+        indexed: false,
+        internalType: 'uint256',
+        name: 'amount',
+        type: 'uint256',
+      },
+      {
+        indexed: false,
+        internalType: 'uint256',
+        name: 'totalUserEsXaiStaked',
+        type: 'uint256',
+      },
+      {
+        indexed: false,
+        internalType: 'uint256',
+        name: 'totalEsXaiStaked',
+        type: 'uint256',
+      },
+    ],
+    name: 'StakeEsXai',
+    type: 'event',
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, internalType: 'address', name: 'user', type: 'address' },
+      { indexed: true, internalType: 'address', name: 'pool', type: 'address' },
+      {
+        indexed: false,
+        internalType: 'uint256',
+        name: 'amount',
+        type: 'uint256',
+      },
+      {
+        indexed: false,
+        internalType: 'uint256',
+        name: 'totalUserKeysStaked',
+        type: 'uint256',
+      },
+      {
+        indexed: false,
+        internalType: 'uint256',
+        name: 'totalKeysStaked',
+        type: 'uint256',
+      },
+    ],
+    name: 'StakeKeys',
+    type: 'event',
+  },
+  { anonymous: false, inputs: [], name: 'StakingEnabled', type: 'event' },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, internalType: 'address', name: 'user', type: 'address' },
+      { indexed: true, internalType: 'address', name: 'pool', type: 'address' },
+      {
+        indexed: false,
+        internalType: 'uint256',
+        name: 'amount',
+        type: 'uint256',
+      },
+      {
+        indexed: false,
+        internalType: 'uint256',
+        name: 'totalUserEsXaiStaked',
+        type: 'uint256',
+      },
+      {
+        indexed: false,
+        internalType: 'uint256',
+        name: 'totalEsXaiStaked',
+        type: 'uint256',
+      },
+    ],
+    name: 'UnstakeEsXai',
+    type: 'event',
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, internalType: 'address', name: 'user', type: 'address' },
+      { indexed: true, internalType: 'address', name: 'pool', type: 'address' },
+      {
+        indexed: false,
+        internalType: 'uint256',
+        name: 'amount',
+        type: 'uint256',
+      },
+      {
+        indexed: false,
+        internalType: 'uint256',
+        name: 'totalUserKeysStaked',
+        type: 'uint256',
+      },
+      {
+        indexed: false,
+        internalType: 'uint256',
+        name: 'totalKeysStaked',
+        type: 'uint256',
+      },
+    ],
+    name: 'UnstakeKeys',
+    type: 'event',
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, internalType: 'address', name: 'user', type: 'address' },
+      { indexed: true, internalType: 'address', name: 'pool', type: 'address' },
+      {
+        indexed: true,
+        internalType: 'uint256',
+        name: 'index',
+        type: 'uint256',
+      },
+      {
+        indexed: false,
+        internalType: 'uint256',
+        name: 'amount',
+        type: 'uint256',
+      },
+      { indexed: false, internalType: 'bool', name: 'isKey', type: 'bool' },
+    ],
+    name: 'UnstakeRequestStarted',
+    type: 'event',
+  },
+  { anonymous: false, inputs: [], name: 'UpdateDelayPeriods', type: 'event' },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, internalType: 'address', name: 'pool', type: 'address' },
+    ],
+    name: 'UpdateMetadata',
+    type: 'event',
+  },
+  {
+    anonymous: false,
+    inputs: [
+      {
+        indexed: true,
+        internalType: 'address',
+        name: 'delegate',
+        type: 'address',
+      },
+      { indexed: true, internalType: 'address', name: 'pool', type: 'address' },
+    ],
+    name: 'UpdatePoolDelegate',
+    type: 'event',
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, internalType: 'address', name: 'pool', type: 'address' },
+    ],
+    name: 'UpdateShares',
+    type: 'event',
+  },
+  {
+    inputs: [],
+    name: 'DEFAULT_ADMIN_ROLE',
+    outputs: [{ internalType: 'bytes32', name: '', type: 'bytes32' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [{ internalType: 'uint256', name: '', type: 'uint256' }],
+    name: 'bucketshareMaxValues',
+    outputs: [{ internalType: 'uint32', name: '', type: 'uint32' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [{ internalType: 'uint256[]', name: 'keyIds', type: 'uint256[]' }],
+    name: 'checkKeysAreStaked',
+    outputs: [{ internalType: 'bool[]', name: 'isStaked', type: 'bool[]' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [{ internalType: 'address[]', name: 'pools', type: 'address[]' }],
+    name: 'claimFromPools',
     outputs: [],
     stateMutability: 'nonpayable',
     type: 'function',
   },
-  // ... other ABI entries
+  {
+    inputs: [
+      { internalType: 'address', name: '_delegateOwner', type: 'address' },
+      { internalType: 'uint256[]', name: '_keyIds', type: 'uint256[]' },
+      { internalType: 'uint32[3]', name: '_shareConfig', type: 'uint32[3]' },
+      { internalType: 'string[3]', name: '_poolMetadata', type: 'string[3]' },
+      { internalType: 'string[]', name: '_poolSocials', type: 'string[]' },
+      {
+        internalType: 'string[2][2]',
+        name: 'trackerDetails',
+        type: 'string[2][2]',
+      },
+    ],
+    name: 'createPool',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    inputs: [
+      { internalType: 'address', name: 'pool', type: 'address' },
+      { internalType: 'uint256', name: 'amount', type: 'uint256' },
+    ],
+    name: 'createUnstakeEsXaiRequest',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    inputs: [
+      { internalType: 'address', name: 'pool', type: 'address' },
+      { internalType: 'uint256', name: 'keyAmount', type: 'uint256' },
+    ],
+    name: 'createUnstakeKeyRequest',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    inputs: [{ internalType: 'address', name: 'pool', type: 'address' }],
+    name: 'createUnstakeOwnerLastKeyRequest',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    inputs: [],
+    name: 'deployerAddress',
+    outputs: [{ internalType: 'address', name: '', type: 'address' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [],
+    name: 'enableStaking',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    inputs: [],
+    name: 'esXaiAddress',
+    outputs: [{ internalType: 'address', name: '', type: 'address' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [{ internalType: 'address', name: 'delegate', type: 'address' }],
+    name: 'getDelegatePools',
+    outputs: [{ internalType: 'address[]', name: '', type: 'address[]' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [{ internalType: 'uint256', name: 'poolIndex', type: 'uint256' }],
+    name: 'getPoolAddress',
+    outputs: [{ internalType: 'address', name: '', type: 'address' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [
+      { internalType: 'address', name: 'user', type: 'address' },
+      { internalType: 'uint256', name: 'index', type: 'uint256' },
+    ],
+    name: 'getPoolAddressOfUser',
+    outputs: [{ internalType: 'address', name: '', type: 'address' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [{ internalType: 'address', name: 'user', type: 'address' }],
+    name: 'getPoolIndicesOfUser',
+    outputs: [{ internalType: 'address[]', name: '', type: 'address[]' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [],
+    name: 'getPoolsCount',
+    outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [{ internalType: 'address', name: 'user', type: 'address' }],
+    name: 'getPoolsOfUserCount',
+    outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [{ internalType: 'bytes32', name: 'role', type: 'bytes32' }],
+    name: 'getRoleAdmin',
+    outputs: [{ internalType: 'bytes32', name: '', type: 'bytes32' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [
+      { internalType: 'bytes32', name: 'role', type: 'bytes32' },
+      { internalType: 'uint256', name: 'index', type: 'uint256' },
+    ],
+    name: 'getRoleMember',
+    outputs: [{ internalType: 'address', name: '', type: 'address' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [{ internalType: 'bytes32', name: 'role', type: 'bytes32' }],
+    name: 'getRoleMemberCount',
+    outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [
+      { internalType: 'address', name: 'user', type: 'address' },
+      { internalType: 'uint16', name: 'offset', type: 'uint16' },
+      { internalType: 'uint16', name: 'pageLimit', type: 'uint16' },
+    ],
+    name: 'getUnstakedKeyIdsFromUser',
+    outputs: [
+      { internalType: 'uint256[]', name: 'unstakedKeyIds', type: 'uint256[]' },
+    ],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [
+      { internalType: 'bytes32', name: 'role', type: 'bytes32' },
+      { internalType: 'address', name: 'account', type: 'address' },
+    ],
+    name: 'grantRole',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    inputs: [
+      { internalType: 'bytes32', name: 'role', type: 'bytes32' },
+      { internalType: 'address', name: 'account', type: 'address' },
+    ],
+    name: 'hasRole',
+    outputs: [{ internalType: 'bool', name: '', type: 'bool' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [
+      { internalType: 'address', name: '_refereeAddress', type: 'address' },
+      { internalType: 'address', name: '_esXaiAddress', type: 'address' },
+      { internalType: 'address', name: '_nodeLicenseAddress', type: 'address' },
+    ],
+    name: 'initialize',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    inputs: [
+      { internalType: 'address', name: '', type: 'address' },
+      { internalType: 'uint256', name: '', type: 'uint256' },
+    ],
+    name: 'interactedPoolsOfUser',
+    outputs: [{ internalType: 'address', name: '', type: 'address' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [
+      { internalType: 'address', name: 'delegate', type: 'address' },
+      { internalType: 'address', name: 'pool', type: 'address' },
+    ],
+    name: 'isDelegateOfPoolOrOwner',
+    outputs: [{ internalType: 'bool', name: '', type: 'bool' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [],
+    name: 'nodeLicenseAddress',
+    outputs: [{ internalType: 'address', name: '', type: 'address' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [{ internalType: 'address', name: '', type: 'address' }],
+    name: 'poolsCreatedViaFactory',
+    outputs: [{ internalType: 'bool', name: '', type: 'bool' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [
+      { internalType: 'address', name: '', type: 'address' },
+      { internalType: 'uint256', name: '', type: 'uint256' },
+    ],
+    name: 'poolsOfDelegate',
+    outputs: [{ internalType: 'address', name: '', type: 'address' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [{ internalType: 'address', name: '', type: 'address' }],
+    name: 'poolsOfDelegateIndices',
+    outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [],
+    name: 'refereeAddress',
+    outputs: [{ internalType: 'address', name: '', type: 'address' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [
+      { internalType: 'bytes32', name: 'role', type: 'bytes32' },
+      { internalType: 'address', name: 'account', type: 'address' },
+    ],
+    name: 'renounceRole',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    inputs: [
+      { internalType: 'bytes32', name: 'role', type: 'bytes32' },
+      { internalType: 'address', name: 'account', type: 'address' },
+    ],
+    name: 'revokeRole',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    inputs: [
+      { internalType: 'address', name: 'pool', type: 'address' },
+      { internalType: 'uint256', name: 'amount', type: 'uint256' },
+    ],
+    name: 'stakeEsXai',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    inputs: [
+      { internalType: 'address', name: 'pool', type: 'address' },
+      { internalType: 'uint256[]', name: 'keyIds', type: 'uint256[]' },
+    ],
+    name: 'stakeKeys',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    inputs: [],
+    name: 'stakingEnabled',
+    outputs: [{ internalType: 'bool', name: '', type: 'bool' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [{ internalType: 'uint256', name: '', type: 'uint256' }],
+    name: 'stakingPools',
+    outputs: [{ internalType: 'address', name: '', type: 'address' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [{ internalType: 'bytes4', name: 'interfaceId', type: 'bytes4' }],
+    name: 'supportsInterface',
+    outputs: [{ internalType: 'bool', name: '', type: 'bool' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [
+      { internalType: 'address', name: 'pool', type: 'address' },
+      { internalType: 'uint256', name: 'unstakeRequestIndex', type: 'uint256' },
+      { internalType: 'uint256', name: 'amount', type: 'uint256' },
+    ],
+    name: 'unstakeEsXai',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    inputs: [],
+    name: 'unstakeEsXaiDelayPeriod',
+    outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [],
+    name: 'unstakeGenesisKeyDelayPeriod',
+    outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [
+      { internalType: 'address', name: 'pool', type: 'address' },
+      { internalType: 'uint256', name: 'unstakeRequestIndex', type: 'uint256' },
+      { internalType: 'uint256[]', name: 'keyIds', type: 'uint256[]' },
+    ],
+    name: 'unstakeKeys',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    inputs: [],
+    name: 'unstakeKeysDelayPeriod',
+    outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [
+      {
+        internalType: 'uint256',
+        name: '_unstakeKeysDelayPeriod',
+        type: 'uint256',
+      },
+      {
+        internalType: 'uint256',
+        name: '_unstakeGenesisKeyDelayPeriod',
+        type: 'uint256',
+      },
+      {
+        internalType: 'uint256',
+        name: '_unstakeEsXaiDelayPeriod',
+        type: 'uint256',
+      },
+      {
+        internalType: 'uint256',
+        name: '_updateRewardBreakdownDelayPeriod',
+        type: 'uint256',
+      },
+    ],
+    name: 'updateDelayPeriods',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    inputs: [
+      { internalType: 'address', name: 'pool', type: 'address' },
+      { internalType: 'address', name: 'delegate', type: 'address' },
+    ],
+    name: 'updateDelegateOwner',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    inputs: [
+      { internalType: 'address', name: 'pool', type: 'address' },
+      { internalType: 'string[3]', name: '_poolMetadata', type: 'string[3]' },
+      { internalType: 'string[]', name: '_poolSocials', type: 'string[]' },
+    ],
+    name: 'updatePoolMetadata',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    inputs: [{ internalType: 'address', name: 'newDeployer', type: 'address' }],
+    name: 'updatePoolProxyDeployer',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    inputs: [],
+    name: 'updateRewardBreakdownDelayPeriod',
+    outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [
+      { internalType: 'address', name: 'pool', type: 'address' },
+      { internalType: 'uint32[3]', name: '_shareConfig', type: 'uint32[3]' },
+    ],
+    name: 'updateShares',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    inputs: [
+      { internalType: 'address', name: '', type: 'address' },
+      { internalType: 'address', name: '', type: 'address' },
+    ],
+    name: 'userToInteractedPoolIds',
+    outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
 ];
 
-// Extract the data part of the transaction
-const dataPartOfTransaction = '0x83092e470000000000000000000000000000000000000000000000195b7959b388b80000000000000000000000000000000000000000000000000000000000000000012000000000000000000000000000000000000000000000000000000000000003c000000000000000000000000000000000000000000000000000000000000003e000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001445babf88410b782572b01cca2fca05c83bffc60b985dc4088bbcdfbe538fb7e63c6f2ddf353092daee16adfbdde1424ee5ccdb12cea0aa41b1be62e19ffc70c0a5d24d28b7a88e33046790028b8a17b36f9249cdc280278024a77889236176398d369623e9344ffc525579dfdbc671fc25e518eb104817a1a91f52a033565640ca1eddac24be71f7ca4fda4df437018f0e3b919f1ccadb36eba420a7b94bbfc6435617aff15d575c73491015d7cf1fc3d331ffcf071a323dcf03c70802708382da7444bdf995cd6d3417c467e1f2f9488f938408b6ba3c240c4165c2ae4b02a5ad0d07fb92db36329d7747700a706a845b0c133e8513dde24d1c72ba7f9bf8d9e50b569e1e4df0890558e093b4f02dc691f7a974875f50dc57b6d94292a70c0ce94422582c680cad9a69aefdc666bb8387ead34a394898b7c889191376c779e98171825845a9c708b26a8677dab2e44396d6285cc76f3d06b63f41a13cff64f9d08871e9cdc20005f972b0611b6ba08a0e46794c1e3bee6d5daacad57c0259471a5d6a4d588d01ff0186ab4bb5abab1dc8e1ac410fe436a51f2c32e4793cbe552a6c67a2f4be67f744fe1abd7209813ad901d89cb0aa0024a56ee29c964f91313a7284bad673fbacdf325d8f113b91dc665a62b4b141126bf94d1d977d00ad47ef2adefe65e9d918cdbe8eafdcf50a954afc8efbbf23ab1356dfb2d83abee76e70af66395a6d48b193d29385458bd152f59d1ebffd7ff957617cd3c436b9a8fac852d8c4bb565591ea8d7323451a8c37f134eebe430418a8f0a1673fa9703ea78e585ed41a83f638b4165bdbd0adae40c4bc22b09173eda61e52db88fa2b25b313873d0cedc2e2e752fe449bb7c0a0ca3fbeca803ffab475b40171e94f031b5700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000';
+const dataPartOfTransaction =
+  '0x5763419800000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000001000000000000000000000000d5ceb0064fa9ffa242eed01e6cfed49b77f1b272';
 
-// Create an Interface instance
 const iface = new ethers.utils.Interface(abi);
 
-// Decode the function call
-const decodedData = iface.decodeFunctionData('claimDop', dataPartOfTransaction);
+abi.forEach((element) => {
+  let function_name = element.name;
 
-// Get the function fragment to access parameter names
-const functionFragment = iface.getFunction('claimDop');
+  try {
+    const decodedData = iface.decodeFunctionData(function_name,dataPartOfTransaction,);
+  
+    const functionFragment = iface.getFunction(function_name);
+    
+    console.log(' ')
+    console.log(' ');
 
-// Display the decoded data with parameter names
-console.log('Decoded Data:');
-functionFragment.inputs.forEach((input, index) => {
-  console.log(`${input.name}: ${decodedData[index].toString()}`);
+    console.log('Decoded Data:');
+    functionFragment.inputs.forEach((input, index) => {
+      console.log(`${input.name}: ${decodedData[index].toString()}`);
+    });
+    console.log(' ')
+    console.log(' ');
+
+  } catch (error) {
+     console.log(function_name + "does not match");
+    //  console.log(error);
+  }
+
 });
+
